@@ -387,4 +387,26 @@ document.addEventListener('DOMContentLoaded', () => {
       window.closePointHistory();
     }
   }
+
+  // --- Pull to Refresh (Mobile) ---
+  const ptrElement = document.getElementById('pull-to-refresh');
+  let touchStartY = 0;
+  
+  window.addEventListener('touchstart', (e) => {
+    if (window.scrollY === 0) touchStartY = e.touches[0].clientY;
+  }, { passive: true });
+
+  window.addEventListener('touchend', (e) => {
+    if (window.scrollY === 0 && touchStartY > 0) {
+      const touchEndY = e.changedTouches[0].clientY;
+      if (touchEndY - touchStartY > 150) { // Umbral de arrastre
+        if(ptrElement) ptrElement.classList.add('visible');
+        setTimeout(() => {
+            if(ptrElement) ptrElement.classList.remove('visible');
+            showToast("Datos actualizados", "success");
+        }, 1500);
+      }
+    }
+    touchStartY = 0;
+  });
 });

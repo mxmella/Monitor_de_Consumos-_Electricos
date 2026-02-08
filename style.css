@@ -599,6 +599,18 @@
       th, td { padding: 10px 15px; }
       #pagination { gap: 5px; }
 
+      /* Ajuste de altura de gráficos en móviles */
+      .chart-container-global { height: 250px; }
+      .chart-container-history { height: 280px; }
+      .modal-body-custom { padding: 10px; }
+
+      /* Ajuste de tarjetas de fase en modal para móviles */
+      .phases-grid { grid-template-columns: 1fr; gap: 10px; }
+      .phase-card { padding: 12px; }
+      .phase-title { font-size: 1rem; margin-bottom: 8px; padding-bottom: 5px; }
+      .phase-row { font-size: 1.1rem; margin-bottom: 4px; }
+      .phase-sub-row { font-size: 0.75rem; margin-bottom: 8px; }
+
     }
 
     .table-container {
@@ -1018,6 +1030,18 @@
     body.dark-mode .chart-title-text {
       color: var(--color-text-dark);
     }
+    
+    /* Contenedores de Gráficos Responsivos */
+    .chart-container-global {
+      position: relative;
+      height: 350px;
+      width: 100%;
+    }
+    .chart-container-history {
+      position: relative;
+      height: 400px;
+      width: 100%;
+    }
 
     /* --- Mejoras de Legibilidad en Tarjetas de Medición --- */
     .point-metrics-header {
@@ -1154,3 +1178,43 @@
     .modal-body-custom { padding: 20px; }
     .close-modal { color: #fff; float: right; font-size: 28px; font-weight: bold; cursor: pointer; }
     .close-modal:hover { color: #ddd; }
+
+    /* Ajustes de responsividad para el modal de fases (Móviles) - AL FINAL para asegurar prioridad */
+    @media (max-width: 768px) {
+      .phases-grid { grid-template-columns: 1fr; gap: 15px; }
+      .phase-card { padding: 15px; }
+      .phase-title { font-size: 1rem; margin-bottom: 8px; padding-bottom: 5px; }
+      .phase-row { font-size: 1.2rem; margin-bottom: 4px; }
+      .phase-sub-row { font-size: 0.8rem; margin-bottom: 8px; }
+    }
+
+    /* --- Pull to Refresh --- */
+    #pull-to-refresh {
+      position: fixed;
+      top: -60px;
+      left: 0;
+      width: 100%;
+      height: 60px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+      transition: top 0.3s ease-out;
+      pointer-events: none;
+    }
+    #pull-to-refresh.visible { top: 20px; }
+    .ptr-spinner {
+      width: 35px;
+      height: 35px;
+      border: 3px solid rgba(0, 151, 152, 0.2);
+      border-top-color: var(--color-primary);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      background: rgba(255,255,255,0.95);
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    body.dark-mode .ptr-spinner {
+      background: rgba(30, 41, 59, 0.95);
+      border-color: rgba(255,255,255,0.1);
+      border-top-color: var(--color-primary);
+    }
