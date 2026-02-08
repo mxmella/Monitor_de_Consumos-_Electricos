@@ -8,6 +8,16 @@
   <link rel="icon" href="logo.png" type="image/png">
   <link rel="manifest" href="manifest.json">
 
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('SW registrado', reg))
+          .catch(err => console.log('Error registrando SW', err));
+      });
+    }
+  </script>
+
   <!-- Chart.js + Zoom Plugin -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
