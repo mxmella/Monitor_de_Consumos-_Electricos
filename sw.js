@@ -1,4 +1,4 @@
-const CACHE_NAME = 'monitor-electrico-v1';
+const CACHE_NAME = 'monitor-electrico-v2';
 const urlsToCache = [
   './',
   './index.html',
