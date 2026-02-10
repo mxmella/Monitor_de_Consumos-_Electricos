@@ -7,7 +7,7 @@
 
     /* Variables CSS para temas claro/oscuro */
     :root {
-      --color-bg-light: #FFFFFF;
+      --color-bg-light: #f3f4f6; /* Fondo gris claro estilo dashboard */
       --color-text-light: #000000;
       --color-bg-dark: #000000;
       --color-surface-dark: #111111;
@@ -25,7 +25,7 @@
       color: var(--color-text-light);
       font-family: 'Inter', sans-serif;
       margin: 0;
-      padding: 30px 20px;
+      padding: 0; /* Eliminar padding del body para estilo full-screen */
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -336,20 +336,20 @@
     /* Estilos para los recuadros de STS */
     .sts-box {
       position: relative; /* Necesario para posicionar el icono absoluto */
-      padding: 20px;
+      padding: 15px 20px;
       background: #ffffff; /* Fondo blanco limpio */
       text-align: center;
-      border-radius: 12px;
+      border-radius: 4px; /* Bordes más rectos estilo BI */
       color: var(--color-text-light);
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1); /* Sombra sutil */
       transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
       display: flex;
       flex-direction: column;
       justify-content: space-between;
       align-items: center;
       min-height: 180px;
-      border: 1px solid rgba(0,0,0,0.05);
-      border-top: 4px solid var(--color-primary); /* Acento superior profesional */
+      border: none;
+      border-top: 3px solid var(--color-primary); /* Línea superior más fina */
       overflow: hidden;
     }
     
@@ -357,10 +357,10 @@
     .kpi-box {
       color: #fff;
       border: none;
-      border-radius: 16px;
+      border-radius: 4px;
       justify-content: center;
       min-height: 140px;
-      box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
     .kpi-box .sts-title { color: #fff; border-bottom: none; margin-bottom: 5px; text-align: center; }
     .kpi-box .sts-data { color: #fff; }
@@ -388,23 +388,21 @@
     }
     .sts-box:hover {
       transform: translateY(-5px);
-      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+      box-shadow: 0 8px 15px rgba(0,0,0,0.1);
     }
     .sts-title {
-      font-size: 1rem;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      font-size: 0.95rem;
+      text-transform: none; /* Títulos tipo oración, más limpio */
       font-weight: 700;
       margin-bottom: 15px;
-      color: var(--color-primary);
+      color: #333; /* Color oscuro para títulos en modo claro */
       width: 100%;
       text-align: left;
-      border-bottom: 1px solid rgba(0,0,0,0.05);
+      border-bottom: none; /* Sin línea divisoria en el título */
       padding-bottom: 10px;
     }
     body.dark-mode .sts-title {
-      color: var(--color-primary-light);
-      border-bottom-color: rgba(255,255,255,0.1);
+      color: #fff;
     }
     .sts-data {
       font-size: 2rem;
@@ -482,16 +480,18 @@
       justify-content: space-between;
       align-items: center;
       width: 100%;
-      max-width: 1600px;
-      margin-bottom: 25px;
-      padding: 15px 25px;
-      background: rgba(255,255,255,0.85);
-      backdrop-filter: blur(12px);
-      border-radius: 20px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+      max-width: 100%;
+      margin-bottom: 20px;
+      padding: 10px 30px;
+      background: #ffffff;
+      border-radius: 0;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
       gap: 20px;
       flex-wrap: wrap;
-      border: 1px solid rgba(255,255,255,0.5);
+      border: none;
+      position: sticky;
+      top: 0;
+      z-index: 100;
     }
     .header-clock {
       font-size: 1.1rem;
@@ -520,13 +520,13 @@
       align-items: center;
     }
     body.dark-mode .main-header {
-       background: rgba(255, 255, 255, 0.95); /* Fondo blanco translúcido */
-      border-bottom: 1px solid #e5e7eb; /* Borde gris claro */
-      box-shadow: 0 4px 20px rgba(0,0,0,0.1); /* Sombra más notoria */
+       background: #1f1f1f;
+      border-bottom: 1px solid #333;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.3);
     }
     /* Ajustes para texto y elementos dentro del header en modo oscuro con fondo blanco */
     body.dark-mode .main-header h1 {
-      color: var(--color-primary);
+      color: #fff;
     }
     body.dark-mode .main-header .header-clock {
       color: var(--color-text-light);
@@ -540,7 +540,8 @@
       grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
       gap: 20px;
       width: 100%;
-      max-width: 1600px;
+      max-width: 100%;
+      padding: 0 20px;
       margin-bottom: 30px;
     }
     .dashboard-grid.main-metrics {
@@ -559,7 +560,7 @@
         grid-template-columns: repeat(2, 1fr); /* Forzar 2 columnas para un layout más limpio y legible */
       }
 
-      .sts-box { padding: 10px; min-height: 100px; border-radius: 12px; }
+      .sts-box { padding: 10px; min-height: 100px; border-radius: 4px; }
       .sts-title { font-size: 0.8rem; margin-bottom: 5px; }
       .sts-data { font-size: 1.3rem; }
       .sts-unit { font-size: 0.75rem; }
@@ -1003,13 +1004,15 @@
     /* Sección de Gráficos Globales */
     .chart-section {
       width: 100%;
-      max-width: 1600px;
+      max-width: calc(100% - 40px);
+      margin-left: 20px;
+      margin-right: 20px;
       background: #fff;
       padding: 20px;
-      border-radius: 16px;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+      border-radius: 4px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
       margin-bottom: 30px;
-      border: 1px solid rgba(0,0,0,0.05);
+      border: none;
       animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) backwards;
       animation-delay: 0.5s;
     }
@@ -1019,13 +1022,13 @@
     }
     .chart-header {
       margin-bottom: 15px;
-      border-bottom: 1px solid rgba(0,0,0,0.05);
+      border-bottom: none;
       padding-bottom: 10px;
     }
     .chart-title-text {
       font-size: 1.2rem;
       font-weight: 700;
-      color: var(--color-primary);
+      color: #333;
     }
     body.dark-mode .chart-title-text {
       color: var(--color-text-dark);
@@ -1049,7 +1052,7 @@
       grid-template-columns: repeat(3, 1fr);
       gap: 10px;
       margin-bottom: 20px;
-      border-bottom: 1px solid rgba(0,0,0,0.05);
+      border-bottom: none;
       padding-bottom: 15px;
       width: 100%;
       align-items: start;
@@ -1070,7 +1073,7 @@
       top: 10%;
       height: 80%;
       width: 1px;
-      background-color: rgba(0,0,0,0.05);
+      background-color: #eee;
     }
     .metric-label {
       font-size: 0.8rem;
@@ -1217,4 +1220,46 @@
       background: rgba(30, 41, 59, 0.95);
       border-color: rgba(255,255,255,0.1);
       border-top-color: var(--color-primary);
+    }
+
+    /* --- Estilos Modal MQTT --- */
+    .mqtt-controls {
+      display: flex;
+      gap: 15px;
+      align-items: flex-end;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+    }
+    .control-group {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+    .control-group label {
+      font-size: 0.8rem;
+      margin-bottom: 5px;
+      font-weight: 600;
+    }
+    .control-group input {
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-family: monospace;
+    }
+    .mqtt-log-container {
+      background: #1e1e1e;
+      color: #0f0;
+      font-family: 'Courier New', monospace;
+      padding: 15px;
+      border-radius: 8px;
+      height: 300px;
+      overflow-y: auto;
+      font-size: 0.85rem;
+      border: 1px solid #333;
+    }
+    #mqttLog div {
+      margin-bottom: 5px;
+      border-bottom: 1px solid #333;
+      padding-bottom: 2px;
+      word-break: break-all;
     }

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'monitor-electrico-v2';
+const CACHE_NAME = 'monitor-electrico-v3';
 const urlsToCache = [
   './',
   './index.html',
@@ -14,7 +14,10 @@ self.addEventListener('install', (event) => {
     caches.open(CACHE_NAME)
       .then((cache) => {
         console.log('Archivos en caché guardados');
-        return cache.addAll(urlsToCache);
+        return cache.addAll(urlsToCache).catch(err => {
+          console.warn('Error cacheando algunos archivos (posiblemente logo.png), pero continuando...', err);
+          // Si falla, intentamos cachear lo esencial para que la app funcione
+        });
       })
   );
   self.skipWaiting();

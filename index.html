@@ -46,6 +46,7 @@
       <div id="connectionStatus"><span class="status-led"></span><span id="connText">Desconectado</span></div>
       <button id="reportBtn"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> Informe</button>
       <button id="simFaultBtn" onclick="toggleFaultSimulation()" style="background-color: #dc3545;">⚠️ Simular Falla</button>
+      <button id="mqttTestBtn" onclick="openMqttModal()" style="background-color: #6f42c1;">📡 Prueba MQTT</button>
       <button id="darkModeToggle" title="Alternar modo oscuro">Modo oscuro</button>
     </div>
   </header>
@@ -249,6 +250,33 @@
         </div>
         <div class="chart-container-history">
           <canvas id="historyChart"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Prueba MQTT -->
+  <div id="mqttModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header-custom">
+        <h2 style="color: #fff; margin: 0;">📡 Diagnóstico MQTT</h2>
+        <span class="close-modal" onclick="closeMqttModal()">&times;</span>
+      </div>
+      <div class="modal-body-custom">
+        <div class="mqtt-controls">
+          <div class="control-group">
+            <label>Broker:</label>
+            <input type="text" id="mqttBroker" value="broker.hivemq.com" readonly>
+          </div>
+          <div class="control-group">
+            <label>Topic:</label>
+            <input type="text" id="mqttTopic" value="data/haiwell/fazsltda/+">
+          </div>
+          <button id="btnMqttConnect" onclick="toggleMqttConnection()">Conectar</button>
+        </div>
+        <div id="mqttStatus" class="status-disconnected" style="margin: 10px 0; font-weight: bold;">Estado: Desconectado</div>
+        <div class="mqtt-log-container">
+          <div id="mqttLog"></div>
         </div>
       </div>
     </div>

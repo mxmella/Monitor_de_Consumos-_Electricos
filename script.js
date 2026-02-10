@@ -409,4 +409,75 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     touchStartY = 0;
   });
+
+  // --- Lógica de Prueba MQTT (Diagnóstico) ---
+  let mqttTestClient = null;
+
+  window.openMqttModal = () => {
+    document.getElementById('mqttModal').style.display = 'block';
+  };
+
+  window.closeMqttModal = () => {
+    document.getElementById('mqttModal').style.display = 'none';
+    if (mqttTestClient) {
+      mqttTestClient.end();
+      mqttTestClient = null;
+      updateMqttUI('Desconectado', false);
+    }
+  };
+
+  window.toggleMqttConnection = () => {
+    if (mqttTestClient) {
+      mqttTestClient.end();
+      mqttTestClient = null;
+      updateMqttUI('Desconectado', false);
+      return;
+    }
+
+    const topic = document.getElementById('mqttTopic').value;
+    const brokerUrl = 'wss://broker.hivemq.com:8884/mqtt'; // Puerto WSS seguro para web
+
+    updateMqttUI('Conectando...', false);
+    logMqtt(`Intentando conectar a ${brokerUrl}...`);
+
+    mqttTestClient = mqtt.connect(brokerUrl);
+
+    mqttTestClient.on('connect', () => {
+      updateMqttUI('Conectado', true);
+      logMqtt('✅ Conexión establecida.');
+      
+      mqttTestClient.subscribe(topic, (err) => {
+        if (!err) {
+          logMqtt(`📡 Suscrito a: ${topic}`);
+        } else {
+          logMqtt(`❌ Error al suscribir: ${err.message}`);
+        }
+      });
+    });
+
+    mqttTestClient.on('message', (topic, message) => {
+      logMqtt(`📩 [${new Date().toLocaleTimeString()}] ${topic}:\n${message.toString()}`);
+    });
+
+    mqttTestClient.on('error', (err) => {
+      logMqtt(`❌ Error: ${err.message}`);
+      updateMqttUI('Error', false);
+    });
+  };
+
+  function updateMqttUI(statusText, isConnected) {
+    const statusEl = document.getElementById('mqttStatus');
+    const btn = document.getElementById('btnMqttConnect');
+    statusEl.textContent = `Estado: ${statusText}`;
+    statusEl.style.color = isConnected ? '#28a745' : '#dc3545';
+    btn.textContent = isConnected ? 'Desconectar' : 'Conectar';
+    btn.style.backgroundColor = isConnected ? '#dc3545' : '#28a745';
+  }
+
+  function logMqtt(msg) {
+    const logContainer = document.getElementById('mqttLog');
+    const entry = document.createElement('div');
+    entry.textContent = msg;
+    logContainer.prepend(entry);
+  }
 });
