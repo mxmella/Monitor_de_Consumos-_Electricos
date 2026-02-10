@@ -456,7 +456,38 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     mqttTestClient.on('message', (topic, message) => {
-      logMqtt(`📩 [${new Date().toLocaleTimeString()}] ${topic}:\n${message.toString()}`);
+      const msgStr = message.toString();
+      logMqtt(`📩 [${new Date().toLocaleTimeString()}] ${topic}:\n${msgStr}`);
+
+      // Intentar parsear JSON para actualizar visualización en vivo
+      try {
+        // Buscar el inicio y fin del JSON por si viene mezclado con texto
+        const jsonStart = msgStr.indexOf('{');
+        const jsonEnd = msgStr.lastIndexOf('}');
+        
+        if (jsonStart !== -1 && jsonEnd !== -1) {
+            const jsonStr = msgStr.substring(jsonStart, jsonEnd + 1);
+            const data = JSON.parse(jsonStr);
+            
+            // Actualizar Valor Entero
+            if (data.Internas_Entero !== undefined) {
+                const valEl = document.getElementById('mqttValue');
+                if(valEl) valEl.textContent = data.Internas_Entero;
+            }
+
+            // Actualizar Luz Piloto (Bool)
+            if (data.Internas_Bool !== undefined) {
+                const pilotEl = document.getElementById('mqttPilot');
+                if(pilotEl) {
+                    // Consideramos "1", 1, "true" o true como encendido
+                    const isActive = data.Internas_Bool == 1 || data.Internas_Bool === "true" || data.Internas_Bool === true;
+                    pilotEl.className = `pilot-light ${isActive ? 'active' : 'inactive'}`;
+                }
+            }
+        }
+      } catch (e) {
+        // Si falla el parseo, solo se muestra en el log (ya hecho arriba)
+      }
     });
 
     mqttTestClient.on('error', (err) => {

@@ -275,6 +275,19 @@
           <button id="btnMqttConnect" onclick="toggleMqttConnection()">Conectar</button>
         </div>
         <div id="mqttStatus" class="status-disconnected" style="margin: 10px 0; font-weight: bold;">Estado: Desconectado</div>
+        
+        <!-- Panel de Datos en Vivo -->
+        <div class="mqtt-live-panel">
+          <div class="live-metric">
+            <span class="live-label">Estado (Bool):</span>
+            <div id="mqttPilot" class="pilot-light"></div>
+          </div>
+          <div class="live-metric">
+            <span class="live-label">Valor (Entero):</span>
+            <div id="mqttValue" class="live-value">--</div>
+          </div>
+        </div>
+
         <div class="mqtt-log-container">
           <div id="mqttLog"></div>
         </div>
