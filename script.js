@@ -9,6 +9,51 @@ document.addEventListener('DOMContentLoaded', () => {
     ic: { min: Infinity, max: -Infinity }
   };
 
+  console.log("FAZS Automatización - Entorno de Pruebas Iniciado");
+
+  // Configuración de Puntos (Broker/Topic)
+  let pointConfigs = [{}, {}, {}, {}, {}, {}]; // Índices 1-5 usados
+  let pilotConfig = null; // Configuración para el panel de luces
+  let kpiConfigs = { power: null, energy: null, pf: null }; // Configuración para KPIs
+
+  // Cargar configuración guardada
+  const loadSavedConfigs = () => {
+    const saved = localStorage.getItem('fazs_point_configs');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        parsed.forEach((cfg, idx) => {
+          if (cfg && cfg.broker && cfg.topic) {
+            // Restaurar conexión automáticamente
+            currentConfigId = idx; // Hack temporal para usar savePointConfig logic o reconectar manual
+            // Mejor: Crear función de reconexión. Por ahora, solo cargamos los datos en memoria para que el usuario pueda dar "Guardar" de nuevo o reconectar.
+            // Para una demo real, reconectamos:
+            connectMqttForPoint(idx, cfg.broker, cfg.topic, cfg.keys);
+          }
+        });
+        showToast("Configuraciones restauradas", "success");
+      } catch (e) { console.error("Error cargando configs", e); }
+    }
+    
+    const savedPilot = localStorage.getItem('fazs_pilot_config');
+    if (savedPilot) {
+        try {
+            const parsed = JSON.parse(savedPilot);
+            if (parsed && parsed.broker) connectPilotMqtt(parsed.broker, parsed.topic, parsed.keys);
+        } catch(e) { console.error("Error cargando pilot config", e); }
+    }
+
+    const savedKpis = localStorage.getItem('fazs_kpi_configs');
+    if (savedKpis) {
+        try {
+            const parsed = JSON.parse(savedKpis);
+            if (parsed.power) connectKpiMqtt('power', parsed.power.broker, parsed.power.topic, parsed.power.key);
+            if (parsed.energy) connectKpiMqtt('energy', parsed.energy.broker, parsed.energy.topic, parsed.energy.key);
+            if (parsed.pf) connectKpiMqtt('pf', parsed.pf.broker, parsed.pf.topic, parsed.pf.key);
+        } catch(e) { console.error("Error cargando kpi configs", e); }
+    }
+  };
+
   // --- 1. Configuración General y UI ---
 
   // Modo Oscuro
@@ -183,9 +228,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  let simulationIntervalId = null;
+
   // Actualización de datos (cada 2s)
-  setInterval(() => {
-    if (!isConnected) return;
+  function runSimulationStep() {
+    if (!isConnected || isTestMode) return; // Detener si está en Modo Pruebas
 
     let totalPower = 0;
     let totalPF = 0;
@@ -200,6 +247,11 @@ document.addEventListener('DOMContentLoaded', () => {
     globalChart.data.labels.push(now);
 
     for (let i = 1; i <= 5; i++) {
+      // Si el punto tiene configuración MQTT activa, saltar simulación
+      if (pointConfigs[i] && pointConfigs[i].client && pointConfigs[i].client.connected) {
+          continue;
+      }
+
       // Generar valores aleatorios
       // Simular fluctuaciones
       let v_raw = 380 + Math.random() * 15 - 7.5; 
@@ -291,15 +343,48 @@ document.addEventListener('DOMContentLoaded', () => {
     currentEnergy += totalPower * (2 / 3600);
 
     // Actualizar KPIs Globales
-    updateElement('kpi_total_power', totalPower.toFixed(1), 'kW');
-    updateElement('kpi_energy', currentEnergy.toFixed(2), 'kWh');
+    if (!kpiConfigs.power || !kpiConfigs.power.client || !kpiConfigs.power.client.connected) {
+        updateElement('kpi_total_power', totalPower.toFixed(1), 'kW');
+    }
+    if (!kpiConfigs.energy || !kpiConfigs.energy.client || !kpiConfigs.energy.client.connected) {
+        updateElement('kpi_energy', currentEnergy.toFixed(2), 'kWh');
+    }
     
     // Actualizar Factor de Potencia Promedio
-    const avgPF = (totalPF / 5).toFixed(3);
-    updateElement('kpi_pf', avgPF);
+    if (!kpiConfigs.pf || !kpiConfigs.pf.client || !kpiConfigs.pf.client.connected) {
+        const avgPF = (totalPF / 5).toFixed(3);
+        updateElement('kpi_pf', avgPF);
+    }
     
     globalChart.update('none'); // 'none' para mejor rendimiento sin animación brusca
-  }, 2000);
+
+    // Simulación de Luces Piloto (si no hay MQTT conectado)
+    if (!pilotConfig || !pilotConfig.client || !pilotConfig.client.connected) {
+        for (let j = 1; j <= 4; j++) {
+            // Cambiar estado aleatoriamente con baja probabilidad para que no sea discoteca
+            if (Math.random() < 0.05) {
+                const lamp = document.getElementById(`lamp${j}`);
+                if (lamp) {
+                    const isNowActive = lamp.classList.contains('active');
+                    lamp.className = `pilot-light-large ${!isNowActive ? 'active' : 'inactive'}`;
+                }
+            }
+        }
+    }
+  }
+
+  function startSimulation(interval) {
+    if (simulationIntervalId) clearInterval(simulationIntervalId);
+    simulationIntervalId = setInterval(runSimulationStep, interval);
+  }
+
+  // Iniciar con velocidad por defecto
+  startSimulation(2000);
+
+  window.changeSimulationSpeed = (speed) => {
+    startSimulation(parseInt(speed));
+    showToast(`Velocidad actualizada`, "info");
+  };
 
   // --- Lógica del Modal de Historial ---
   let historyChartInstance = null;
@@ -511,4 +596,405 @@ document.addEventListener('DOMContentLoaded', () => {
     entry.textContent = msg;
     logContainer.prepend(entry);
   }
+
+  // --- Modo Pruebas (Limpieza para Configuración) ---
+  let isTestMode = false;
+
+  window.toggleTestMode = () => {
+    isTestMode = !isTestMode;
+    const btn = document.getElementById('testModeBtn');
+    
+    if (isTestMode) {
+      if(btn) {
+          btn.textContent = "⏹ Salir Modo Pruebas";
+          btn.style.backgroundColor = "#dc3545";
+      }
+      
+      // Limpiar todos los valores visuales
+      resetDashboardValues();
+      
+      // Limpiar gráfico
+      globalChart.data.labels = [];
+      globalChart.data.datasets.forEach(ds => ds.data = []);
+      globalChart.update();
+
+      showToast("Modo Pruebas ACTIVADO: Simulación detenida", "info");
+    } else {
+      if(btn) {
+          btn.textContent = "🛠️ Modo Pruebas";
+          btn.style.backgroundColor = "#0d6efd";
+      }
+      showToast("Modo Pruebas DESACTIVADO: Simulación reiniciada", "success");
+    }
+  };
+
+  function resetDashboardValues() {
+    // Resetear Puntos 1-5
+    for(let i=1; i<=5; i++) {
+        updateElement(`p${i}_v_tot`, '--', 'V');
+        updateElement(`p${i}_i_tot`, '--', 'A');
+        updateElement(`p${i}_kw`, '--', 'kW');
+        // Si no hay conexión MQTT real activa, apagar LED
+        if (!pointConfigs[i] || !pointConfigs[i].client || !pointConfigs[i].client.connected) {
+            const led = document.getElementById(`p${i}_status_led`);
+            if(led) led.style.backgroundColor = '#ccc';
+        }
+    }
+    // Resetear KPIs
+    updateElement('kpi_total_power', '--', 'kW');
+    updateElement('kpi_energy', '--', 'kWh');
+    updateElement('kpi_pf', '--');
+    
+    // Resetear Luces Piloto (si no hay MQTT real)
+    if (!pilotConfig || !pilotConfig.client || !pilotConfig.client.connected) {
+        for(let j=1; j<=4; j++) {
+            const lamp = document.getElementById(`lamp${j}`);
+            if(lamp) lamp.className = 'pilot-light-large inactive';
+        }
+    }
+  }
+
+  // --- Configuración Individual de Puntos ---
+  let currentConfigId = null;
+
+  // Función auxiliar para guardar en LocalStorage
+  const persistConfigs = () => {
+    // Guardamos solo los datos, no el objeto cliente MQTT
+    const toSave = pointConfigs.map(p => ({
+      broker: p.broker,
+      topic: p.topic,
+      keys: p.keys
+    }));
+    localStorage.setItem('fazs_point_configs', JSON.stringify(toSave));
+  };
+
+  window.openConfigModal = (id) => {
+    currentConfigId = id;
+    document.getElementById('configPointId').textContent = id;
+    document.getElementById('configModal').style.display = 'block';
+    
+    // Cargar configuración existente si hay
+    if (pointConfigs[id]) {
+        document.getElementById('pointBroker').value = pointConfigs[id].broker || '';
+        document.getElementById('pointTopic').value = pointConfigs[id].topic || '';
+        document.getElementById('keyVoltaje').value = pointConfigs[id].keys?.v || '';
+        document.getElementById('keyCorriente').value = pointConfigs[id].keys?.i || '';
+        document.getElementById('keyPotencia').value = pointConfigs[id].keys?.p || '';
+        document.getElementById('keyVa').value = pointConfigs[id].keys?.va || '';
+        document.getElementById('keyIa').value = pointConfigs[id].keys?.ia || '';
+    } else {
+        document.getElementById('pointBroker').value = '';
+        document.getElementById('pointTopic').value = '';
+        document.getElementById('keyVoltaje').value = '';
+        document.getElementById('keyCorriente').value = '';
+        document.getElementById('keyPotencia').value = '';
+        document.getElementById('keyVa').value = '';
+        document.getElementById('keyIa').value = '';
+    }
+    
+    document.getElementById('jsonSamplePayload').value = '';
+    document.getElementById('mappingResult').style.display = 'none';
+    document.getElementById('mappingResult').innerHTML = '';
+  };
+
+  window.closeConfigModal = () => {
+    document.getElementById('configModal').style.display = 'none';
+  };
+
+  window.savePointConfig = () => {
+    const broker = document.getElementById('pointBroker').value;
+    const topic = document.getElementById('pointTopic').value;
+    
+    const keyV = document.getElementById('keyVoltaje').value.trim();
+    const keyI = document.getElementById('keyCorriente').value.trim();
+    const keyP = document.getElementById('keyPotencia').value.trim();
+    const keyVa = document.getElementById('keyVa').value.trim();
+    const keyIa = document.getElementById('keyIa').value.trim();
+    
+    if (!broker || !topic) {
+        showToast("Ingrese Broker y Topic", "error");
+        return;
+    }
+
+    // Desconectar cliente anterior si existe
+    if (pointConfigs[currentConfigId] && pointConfigs[currentConfigId].client) {
+        pointConfigs[currentConfigId].client.end();
+    }
+
+    connectMqttForPoint(currentConfigId, broker, topic, { v: keyV, i: keyI, p: keyP, va: keyVa, ia: keyIa });
+    closeConfigModal();
+  };
+
+  function connectMqttForPoint(id, broker, topic, keys) {
+    const client = mqtt.connect(broker);
+    
+    client.on('connect', () => {
+        showToast(`Punto ${id}: Conectado`, "success");
+        client.subscribe(topic);
+        document.getElementById(`p${id}_topic_display`).textContent = topic;
+        document.getElementById(`p${id}_topic_display`).style.color = "#28a745";
+        document.getElementById(`p${id}_status_led`).style.backgroundColor = "#28a745"; // LED Verde
+    });
+
+    client.on('message', (t, msg) => {
+        // Asumimos que llega un JSON con { v_tot, i_tot, kw, ... } o similar
+        // Para este ejemplo de prueba, intentaremos parsear lo que llegue
+        try {
+            const data = JSON.parse(msg.toString());
+            
+            // Usar las claves configuradas por el usuario
+            if (keys.v && data[keys.v] !== undefined) updateElement(`p${id}_v_tot`, parseFloat(data[keys.v]).toFixed(1), 'V');
+            if (keys.i && data[keys.i] !== undefined) updateElement(`p${id}_i_tot`, parseFloat(data[keys.i]).toFixed(1), 'A');
+            if (keys.p && data[keys.p] !== undefined) updateElement(`p${id}_kw`, parseFloat(data[keys.p]).toFixed(1), 'kW');
+            
+            // Si llegan datos de fase, actualizarlos también (para el modal)
+            // Ejemplo simple para Fase A (extensible a B y C)
+            if (keys.va && data[keys.va] !== undefined) {
+                const val = parseFloat(data[keys.va]).toFixed(1);
+                // Actualizar en modal si está abierto
+                if (selectedPointId === id) updateElement('modal_va', val);
+                // Actualizar stats de sesión
+                if (selectedPointId === id) {
+                   // Lógica de min/max... (simplificada aquí para no duplicar código excesivo)
+                }
+            }
+            if (keys.ia && data[keys.ia] !== undefined) {
+                if (selectedPointId === id) updateElement('modal_ia', parseFloat(data[keys.ia]).toFixed(1));
+            }
+            
+        } catch (e) {
+            console.warn(`Error parseando datos punto ${id}`, e);
+        }
+    });
+
+    client.on('error', () => {
+       document.getElementById(`p${id}_status_led`).style.backgroundColor = "#dc3545"; // LED Rojo
+    });
+
+    pointConfigs[id] = { broker, topic, client, keys };
+    persistConfigs(); // Guardar cambios
+  }
+
+  window.testJsonMapping = () => {
+    const payloadStr = document.getElementById('jsonSamplePayload').value.trim();
+    const keyV = document.getElementById('keyVoltaje').value.trim();
+    const keyI = document.getElementById('keyCorriente').value.trim();
+    const keyP = document.getElementById('keyPotencia').value.trim();
+    const resultDiv = document.getElementById('mappingResult');
+
+    if (!payloadStr) {
+        showToast("Ingrese un JSON de ejemplo", "error");
+        return;
+    }
+
+    try {
+        const data = JSON.parse(payloadStr);
+        let resultHtml = '<strong>Resultados de Extracción:</strong><br>';
+        
+        const getVal = (key, obj) => {
+            if (!key) return '<span style="color:#999">No configurado</span>';
+            if (obj[key] !== undefined) return `<span style="color:#28a745">${obj[key]}</span>`;
+            return '<span style="color:#dc3545">No encontrado</span>';
+        };
+
+        resultHtml += `Voltaje [${keyV || '-'}]: <b>${getVal(keyV, data)}</b><br>`;
+        resultHtml += `Corriente [${keyI || '-'}]: <b>${getVal(keyI, data)}</b><br>`;
+        resultHtml += `Potencia [${keyP || '-'}]: <b>${getVal(keyP, data)}</b>`;
+
+        resultDiv.innerHTML = resultHtml;
+        resultDiv.style.display = 'block';
+    } catch (e) {
+        resultDiv.innerHTML = '<span style="color:#dc3545">Error: JSON inválido</span>';
+        resultDiv.style.display = 'block';
+    }
+  };
+
+  window.clearPointConfig = () => {
+    if (pointConfigs[currentConfigId] && pointConfigs[currentConfigId].client) {
+        pointConfigs[currentConfigId].client.end();
+    }
+    pointConfigs[currentConfigId] = null;
+    
+    document.getElementById(`p${currentConfigId}_topic_display`).textContent = "Simulación";
+    document.getElementById(`p${currentConfigId}_topic_display`).style.color = "#888";
+    document.getElementById(`p${currentConfigId}_status_led`).style.backgroundColor = "#ccc";
+    
+    showToast(`Punto ${currentConfigId}: Restaurado a Simulación`, "info");
+    persistConfigs(); // Guardar que se borró
+    closeConfigModal();
+  };
+
+  // Iniciar carga de configs
+  setTimeout(loadSavedConfigs, 500);
+
+  // --- Lógica Panel de Luces Piloto ---
+  window.openPilotConfigModal = () => {
+    document.getElementById('pilotConfigModal').style.display = 'block';
+    if (pilotConfig) {
+        document.getElementById('pilotBroker').value = pilotConfig.broker || '';
+        document.getElementById('pilotTopic').value = pilotConfig.topic || '';
+        document.getElementById('keyLamp1').value = pilotConfig.keys?.l1 || '';
+        document.getElementById('keyLamp2').value = pilotConfig.keys?.l2 || '';
+        document.getElementById('keyLamp3').value = pilotConfig.keys?.l3 || '';
+        document.getElementById('keyLamp4').value = pilotConfig.keys?.l4 || '';
+    }
+  };
+
+  window.closePilotConfigModal = () => {
+    document.getElementById('pilotConfigModal').style.display = 'none';
+  };
+
+  window.savePilotConfig = () => {
+    const broker = document.getElementById('pilotBroker').value;
+    const topic = document.getElementById('pilotTopic').value;
+    const k1 = document.getElementById('keyLamp1').value.trim();
+    const k2 = document.getElementById('keyLamp2').value.trim();
+    const k3 = document.getElementById('keyLamp3').value.trim();
+    const k4 = document.getElementById('keyLamp4').value.trim();
+
+    if (!broker || !topic) { showToast("Ingrese Broker y Topic", "error"); return; }
+
+    if (pilotConfig && pilotConfig.client) pilotConfig.client.end();
+
+    connectPilotMqtt(broker, topic, { l1: k1, l2: k2, l3: k3, l4: k4 });
+    closePilotConfigModal();
+  };
+
+  function connectPilotMqtt(broker, topic, keys) {
+    const client = mqtt.connect(broker);
+    
+    client.on('connect', () => {
+        showToast("Panel Luces: Conectado", "success");
+        client.subscribe(topic);
+        document.getElementById('pilot_topic_display').textContent = topic;
+        document.getElementById('pilot_topic_display').style.color = "#28a745";
+    });
+
+    client.on('message', (t, msg) => {
+        try {
+            const data = JSON.parse(msg.toString());
+            const updateLamp = (id, key) => {
+                if (key && data[key] !== undefined) {
+                    const val = data[key];
+                    const isActive = val == 1 || val === "true" || val === true;
+                    document.getElementById(id).className = `pilot-light-large ${isActive ? 'active' : 'inactive'}`;
+                }
+            };
+            updateLamp('lamp1', keys.l1);
+            updateLamp('lamp2', keys.l2);
+            updateLamp('lamp3', keys.l3);
+            updateLamp('lamp4', keys.l4);
+        } catch(e) { console.warn("Error parseando luces", e); }
+    });
+
+    pilotConfig = { broker, topic, client, keys };
+    localStorage.setItem('fazs_pilot_config', JSON.stringify({ broker, topic, keys }));
+  }
+
+  window.clearPilotConfig = () => {
+    if (pilotConfig && pilotConfig.client) pilotConfig.client.end();
+    pilotConfig = null;
+    localStorage.removeItem('fazs_pilot_config');
+    
+    document.getElementById('pilot_topic_display').textContent = "Simulación";
+    document.getElementById('pilot_topic_display').style.color = "#888";
+    // Resetear a inactivo
+    for(let i=1; i<=4; i++) document.getElementById(`lamp${i}`).className = 'pilot-light-large inactive';
+    
+    showToast("Panel Luces: Restaurado a Simulación", "info");
+    closePilotConfigModal();
+  };
+
+  // --- Lógica Configuración KPIs ---
+  let currentKpiType = null;
+  const kpiNames = { power: 'Potencia Total', energy: 'Energía Total', pf: 'Factor de Potencia' };
+
+  window.openKpiConfigModal = (type) => {
+    currentKpiType = type;
+    document.getElementById('configKpiName').textContent = kpiNames[type];
+    document.getElementById('kpiConfigModal').style.display = 'block';
+    
+    if (kpiConfigs[type]) {
+        document.getElementById('kpiBroker').value = kpiConfigs[type].broker || '';
+        document.getElementById('kpiTopic').value = kpiConfigs[type].topic || '';
+        document.getElementById('kpiKey').value = kpiConfigs[type].key || '';
+    } else {
+        document.getElementById('kpiBroker').value = '';
+        document.getElementById('kpiTopic').value = '';
+        document.getElementById('kpiKey').value = '';
+    }
+  };
+
+  window.closeKpiConfigModal = () => {
+    document.getElementById('kpiConfigModal').style.display = 'none';
+  };
+
+  window.saveKpiConfig = () => {
+    const broker = document.getElementById('kpiBroker').value;
+    const topic = document.getElementById('kpiTopic').value;
+    const key = document.getElementById('kpiKey').value.trim();
+
+    if (!broker || !topic) { showToast("Ingrese Broker y Topic", "error"); return; }
+
+    if (kpiConfigs[currentKpiType] && kpiConfigs[currentKpiType].client) {
+        kpiConfigs[currentKpiType].client.end();
+    }
+
+    connectKpiMqtt(currentKpiType, broker, topic, key);
+    closeKpiConfigModal();
+  };
+
+  function connectKpiMqtt(type, broker, topic, key) {
+    const client = mqtt.connect(broker);
+    const elementId = type === 'power' ? 'kpi_total_power' : (type === 'energy' ? 'kpi_energy' : 'kpi_pf');
+    const displayId = type === 'power' ? 'kpi_power_topic_display' : (type === 'energy' ? 'kpi_energy_topic_display' : 'kpi_pf_topic_display');
+    const unit = type === 'power' ? 'kW' : (type === 'energy' ? 'kWh' : '');
+
+    client.on('connect', () => {
+        showToast(`${kpiNames[type]}: Conectado`, "success");
+        client.subscribe(topic);
+        document.getElementById(displayId).textContent = topic;
+        document.getElementById(displayId).style.color = "rgba(255,255,255,1)";
+    });
+
+    client.on('message', (t, msg) => {
+        try {
+            const data = JSON.parse(msg.toString());
+            if (key && data[key] !== undefined) {
+                updateElement(elementId, parseFloat(data[key]).toFixed(type === 'pf' ? 3 : 1), unit);
+            }
+        } catch(e) { console.warn(`Error KPI ${type}`, e); }
+    });
+
+    kpiConfigs[type] = { broker, topic, key, client };
+    
+    // Guardar persistencia
+    const toSave = {};
+    if (kpiConfigs.power) toSave.power = { broker: kpiConfigs.power.broker, topic: kpiConfigs.power.topic, key: kpiConfigs.power.key };
+    if (kpiConfigs.energy) toSave.energy = { broker: kpiConfigs.energy.broker, topic: kpiConfigs.energy.topic, key: kpiConfigs.energy.key };
+    if (kpiConfigs.pf) toSave.pf = { broker: kpiConfigs.pf.broker, topic: kpiConfigs.pf.topic, key: kpiConfigs.pf.key };
+    localStorage.setItem('fazs_kpi_configs', JSON.stringify(toSave));
+  }
+
+  window.clearKpiConfig = () => {
+    if (kpiConfigs[currentKpiType] && kpiConfigs[currentKpiType].client) {
+        kpiConfigs[currentKpiType].client.end();
+    }
+    kpiConfigs[currentKpiType] = null;
+    
+    const displayId = currentKpiType === 'power' ? 'kpi_power_topic_display' : (currentKpiType === 'energy' ? 'kpi_energy_topic_display' : 'kpi_pf_topic_display');
+    document.getElementById(displayId).textContent = "Simulación";
+    document.getElementById(displayId).style.color = "rgba(255,255,255,0.7)";
+    
+    // Actualizar persistencia (borrando la key correspondiente)
+    const saved = localStorage.getItem('fazs_kpi_configs');
+    if (saved) {
+        const parsed = JSON.parse(saved);
+        delete parsed[currentKpiType];
+        localStorage.setItem('fazs_kpi_configs', JSON.stringify(parsed));
+    }
+
+    showToast(`${kpiNames[currentKpiType]}: Restaurado a Simulación`, "info");
+    closeKpiConfigModal();
+  };
 });

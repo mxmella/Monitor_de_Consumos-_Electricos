@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Monitor de Consumos Eléctricos</title>
-  <link rel="icon" href="logo.png" type="image/png">
+  <title>FAZS - Plataforma de Pruebas</title>
+  <link rel="icon" href="logo.png" type="image/png" />
 
   <!-- Chart.js + Zoom Plugin -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
   <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
   
 </head>
 <body>
@@ -21,7 +21,8 @@
     <div class="header-left">
       <img id="logo-fijo" src="logo.png" alt="Logo" />
       <div class="header-info">
-        <h1>Monitor de Consumos Eléctricos - 5 Puntos</h1>
+        <h1>Monitor de Consumos - Demo</h1>
+        <div class="demo-badge">Ambiente de Pruebas</div>
         <div id="liveClock" class="header-clock">--</div>
         <div id="reportTimestamp" class="print-only"></div>
       </div>
@@ -30,7 +31,13 @@
       <div id="connectionStatus"><span class="status-led"></span><span id="connText">Desconectado</span></div>
       <button id="reportBtn"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> Informe</button>
       <button id="simFaultBtn" onclick="toggleFaultSimulation()" style="background-color: #dc3545;">⚠️ Simular Falla</button>
+      <button id="testModeBtn" onclick="toggleTestMode()" style="background-color: #0d6efd;">🛠️ Modo Pruebas</button>
       <button id="mqttTestBtn" onclick="openMqttModal()" style="background-color: #6f42c1;">📡 Prueba MQTT</button>
+      <select id="simSpeed" onchange="changeSimulationSpeed(this.value)">
+        <option value="2000" selected>Velocidad: Normal (2s)</option>
+        <option value="500">Velocidad: Rápida (0.5s)</option>
+        <option value="5000">Velocidad: Lenta (5s)</option>
+      </select>
       <button id="darkModeToggle" title="Alternar modo oscuro">Modo oscuro</button>
     </div>
   </header>
@@ -38,19 +45,25 @@
   <!-- Resumen Global (KPIs) -->
   <div class="dashboard-grid main-metrics">
     <div class="sts-box kpi-box" style="background: linear-gradient(135deg, #28a745, #1e7e34);">
+      <button class="config-btn" onclick="openKpiConfigModal('power')" title="Configurar MQTT" style="color: rgba(255,255,255,0.8);">⚙️</button>
       <div class="sts-title">Potencia Activa Total (Est.)</div>
       <div id="kpi_total_power" class="sts-data">-- <span class="sts-unit">kW</span></div>
+      <div id="kpi_power_topic_display" class="topic-display" style="color: rgba(255,255,255,0.7); margin-top: 5px;">Simulación</div>
     </div>
     <div class="sts-box kpi-box" style="background: linear-gradient(135deg, #6f42c1, #59359a);">
       <!-- Icono Energía -->
       <svg class="card-icon" viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+      <button class="config-btn" onclick="openKpiConfigModal('energy')" title="Configurar MQTT" style="color: rgba(255,255,255,0.8);">⚙️</button>
       <div class="sts-title">Total kWh</div>
       <div id="kpi_energy" class="sts-data">-- <span class="sts-unit">kWh</span></div>
+      <div id="kpi_energy_topic_display" class="topic-display" style="color: rgba(255,255,255,0.7); margin-top: 5px;">Simulación</div>
     </div>
     <div class="sts-box kpi-box" style="background: linear-gradient(135deg, #fd7e14, #c65f0a);">
       <svg class="card-icon" viewBox="0 0 24 24"><path d="M23 6l-9.5 9.5-5-5L1 18"></path><path d="M17 6h6v6"></path></svg>
+      <button class="config-btn" onclick="openKpiConfigModal('pf')" title="Configurar MQTT" style="color: rgba(255,255,255,0.8);">⚙️</button>
       <div class="sts-title">Factor de Potencia</div>
       <div id="kpi_pf" class="sts-data">--</div>
+      <div id="kpi_pf_topic_display" class="topic-display" style="color: rgba(255,255,255,0.7); margin-top: 5px;">Simulación</div>
     </div>
   </div>
 
@@ -60,6 +73,8 @@
     <div id="point1-cell" class="sts-box">
       <!-- Icono Medidor -->
       <svg class="card-icon" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+      <div id="p1_status_led" class="card-status-led" title="Estado Conexión"></div>
+      <button class="config-btn" onclick="openConfigModal(1)" title="Configurar MQTT">⚙️</button>
       <div class="sts-title">Punto de Medición 1</div>
       <div class="point-metrics-header">
         <div class="metric-item">
@@ -75,6 +90,7 @@
           <div id="p1_kw" class="sts-data metric-value">-- <span class="sts-unit">kW</span></div>
         </div>
       </div>
+      <div id="p1_topic_display" class="topic-display">Simulación</div>
       <div class="card-action-prompt" onclick="openPointHistory(1)">
         <span>Ver Detalles</span>
         <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
@@ -84,6 +100,8 @@
     <!-- Punto 2 -->
     <div id="point2-cell" class="sts-box">
       <svg class="card-icon" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+      <div id="p2_status_led" class="card-status-led" title="Estado Conexión"></div>
+      <button class="config-btn" onclick="openConfigModal(2)" title="Configurar MQTT">⚙️</button>
       <div class="sts-title">Punto de Medición 2</div>
       <div class="point-metrics-header">
         <div class="metric-item">
@@ -99,6 +117,7 @@
           <div id="p2_kw" class="sts-data metric-value">-- <span class="sts-unit">kW</span></div>
         </div>
       </div>
+      <div id="p2_topic_display" class="topic-display">Simulación</div>
       <div class="card-action-prompt" onclick="openPointHistory(2)">
         <span>Ver Detalles</span>
         <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
@@ -108,6 +127,8 @@
     <!-- Punto 3 -->
     <div id="point3-cell" class="sts-box">
       <svg class="card-icon" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+      <div id="p3_status_led" class="card-status-led" title="Estado Conexión"></div>
+      <button class="config-btn" onclick="openConfigModal(3)" title="Configurar MQTT">⚙️</button>
       <div class="sts-title">Punto de Medición 3</div>
       <div class="point-metrics-header">
         <div class="metric-item">
@@ -123,6 +144,7 @@
           <div id="p3_kw" class="sts-data metric-value">-- <span class="sts-unit">kW</span></div>
         </div>
       </div>
+      <div id="p3_topic_display" class="topic-display">Simulación</div>
       <div class="card-action-prompt" onclick="openPointHistory(3)">
         <span>Ver Detalles</span>
         <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
@@ -132,6 +154,8 @@
     <!-- Punto 4 -->
     <div id="point4-cell" class="sts-box">
       <svg class="card-icon" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+      <div id="p4_status_led" class="card-status-led" title="Estado Conexión"></div>
+      <button class="config-btn" onclick="openConfigModal(4)" title="Configurar MQTT">⚙️</button>
       <div class="sts-title">Punto de Medición 4</div>
       <div class="point-metrics-header">
         <div class="metric-item">
@@ -147,6 +171,7 @@
           <div id="p4_kw" class="sts-data metric-value">-- <span class="sts-unit">kW</span></div>
         </div>
       </div>
+      <div id="p4_topic_display" class="topic-display">Simulación</div>
       <div class="card-action-prompt" onclick="openPointHistory(4)">
         <span>Ver Detalles</span>
         <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
@@ -156,6 +181,8 @@
     <!-- Punto 5 -->
     <div id="point5-cell" class="sts-box">
       <svg class="card-icon" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+      <div id="p5_status_led" class="card-status-led" title="Estado Conexión"></div>
+      <button class="config-btn" onclick="openConfigModal(5)" title="Configurar MQTT">⚙️</button>
       <div class="sts-title">Punto de Medición 5</div>
       <div class="point-metrics-header">
         <div class="metric-item">
@@ -171,10 +198,37 @@
           <div id="p5_kw" class="sts-data metric-value">-- <span class="sts-unit">kW</span></div>
         </div>
       </div>
+      <div id="p5_topic_display" class="topic-display">Simulación</div>
       <div class="card-action-prompt" onclick="openPointHistory(5)">
         <span>Ver Detalles</span>
         <svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
       </div>
+    </div>
+
+    <!-- Panel de Estados (Luces Piloto) -->
+    <div id="pilot-panel-cell" class="sts-box">
+      <svg class="card-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+      <button class="config-btn" onclick="openPilotConfigModal()" title="Configurar Luces">⚙️</button>
+      <div class="sts-title">Panel de Estados</div>
+      <div class="pilot-grid">
+        <div class="pilot-item">
+          <div id="lamp1" class="pilot-light-large inactive"></div>
+          <span class="pilot-label">Piloto 1</span>
+        </div>
+        <div class="pilot-item">
+          <div id="lamp2" class="pilot-light-large inactive"></div>
+          <span class="pilot-label">Piloto 2</span>
+        </div>
+        <div class="pilot-item">
+          <div id="lamp3" class="pilot-light-large inactive"></div>
+          <span class="pilot-label">Piloto 3</span>
+        </div>
+        <div class="pilot-item">
+          <div id="lamp4" class="pilot-light-large inactive"></div>
+          <span class="pilot-label">Piloto 4</span>
+        </div>
+      </div>
+      <div id="pilot_topic_display" class="topic-display">Simulación</div>
     </div>
   </div>
 
@@ -250,11 +304,11 @@
         <div class="mqtt-controls">
           <div class="control-group">
             <label>Broker:</label>
-            <input type="text" id="mqttBroker" value="broker.hivemq.com" readonly>
+            <input type="text" id="mqttBroker" value="broker.hivemq.com" readonly />
           </div>
           <div class="control-group">
             <label>Topic:</label>
-            <input type="text" id="mqttTopic" value="data/haiwell/fazsltda/+">
+            <input type="text" id="mqttTopic" value="data/haiwell/fazsltda/+" />
           </div>
           <button id="btnMqttConnect" onclick="toggleMqttConnection()">Conectar</button>
         </div>
@@ -275,6 +329,133 @@
         <div class="mqtt-log-container">
           <div id="mqttLog"></div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Configuración de Punto -->
+  <div id="configModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header-custom">
+        <h2 style="color: #fff; margin: 0;">⚙️ Configurar Punto <span id="configPointId"></span></h2>
+        <span class="close-modal" onclick="closeConfigModal()">&times;</span>
+      </div>
+      <div class="modal-body-custom">
+        <div class="control-group" style="margin-bottom: 15px;">
+          <label>Broker MQTT (WSS):</label>
+          <input type="text" id="pointBroker" placeholder="wss://broker.hivemq.com:8884/mqtt" style="width: 100%;" />
+        </div>
+        <div class="control-group" style="margin-bottom: 15px;">
+          <label>Topic:</label>
+          <input type="text" id="pointTopic" placeholder="data/haiwell/fazsltda/punto1" style="width: 100%;" />
+        </div>
+        
+        <h4 style="margin: 10px 0 5px; color: #666; font-size: 0.9rem;">Mapeo de Datos (Claves JSON)</h4>
+        <div class="control-group" style="margin-bottom: 5px;">
+          <label style="font-weight: normal; font-size: 0.8rem;">Voltaje Total:</label>
+          <input type="text" id="keyVoltaje" placeholder="Ej: voltaje_L_L" style="width: 100%;" />
+        </div>
+        <div class="control-group" style="margin-bottom: 5px;">
+          <label style="font-weight: normal; font-size: 0.8rem;">Corriente Total:</label>
+          <input type="text" id="keyCorriente" placeholder="Ej: corriente_total" style="width: 100%;" />
+        </div>
+        <div class="control-group" style="margin-bottom: 20px;">
+          <label style="font-weight: normal; font-size: 0.8rem;">Potencia (kW):</label>
+          <input type="text" id="keyPotencia" placeholder="Ej: potencia_activa" style="width: 100%;" />
+        </div>
+
+        <h4 style="margin: 10px 0 5px; color: #666; font-size: 0.9rem;">Mapeo de Fases (Opcional)</h4>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+          <div>
+            <label style="font-size: 0.75rem;">Voltaje Fase A:</label>
+            <input type="text" id="keyVa" placeholder="Ej: v_a" style="width: 100%; padding: 6px;" />
+            <label style="font-size: 0.75rem; margin-top: 5px;">Corriente Fase A:</label>
+            <input type="text" id="keyIa" placeholder="Ej: i_a" style="width: 100%; padding: 6px;" />
+          </div>
+          <!-- Nota: Para simplificar la UI, asumiremos patrones o agregaremos más campos si es necesario. Por ahora agregamos los principales -->
+          <!-- Se pueden agregar Vb, Vc, Ib, Ic aquí si se requiere control total -->
+          <div style="grid-column: 1 / -1; font-size: 0.75rem; color: #888; font-style: italic;">
+            * Configure las claves para Fase A. El sistema intentará inferir B y C o puede agregar más campos en el código. (Para esta demo, agregaremos todos los campos en el script).
+          </div>
+        </div>
+
+        <h4 style="margin: 10px 0 5px; color: #666; font-size: 0.9rem; border-top: 1px solid #eee; padding-top: 10px;">Prueba de Mapeo</h4>
+        <div class="control-group" style="margin-bottom: 10px;">
+            <label for="jsonSamplePayload" style="font-weight: normal; font-size: 0.8rem;">JSON de Ejemplo:</label>
+            <textarea id="jsonSamplePayload" rows="3" style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; font-size: 0.8rem; resize: vertical;" placeholder='Pegue aquí un JSON de ejemplo: {"voltaje": 380, ...}'></textarea>
+        </div>
+        <button onclick="testJsonMapping()" style="width: 100%; background-color: #6f42c1; margin-bottom: 15px; padding: 8px;">Probar Mapeo</button>
+        <div id="mappingResult" style="display:none; background: #f8f9fa; padding: 10px; border-radius: 4px; border: 1px solid #ddd; font-size: 0.85rem; margin-bottom: 15px; color: #333;"></div>
+
+        <button onclick="savePointConfig()" style="width: 100%; background-color: #28a745;">Guardar Configuración</button>
+        <button onclick="clearPointConfig()" style="width: 100%; background-color: #dc3545; margin-top: 10px; margin-left: 0;">Restaurar a Simulación</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Configuración Luces Piloto -->
+  <div id="pilotConfigModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header-custom">
+        <h2 style="color: #fff; margin: 0;">⚙️ Configurar Luces Piloto</h2>
+        <span class="close-modal" onclick="closePilotConfigModal()">&times;</span>
+      </div>
+      <div class="modal-body-custom">
+        <div class="control-group" style="margin-bottom: 15px;">
+          <label>Broker MQTT (WSS):</label>
+          <input type="text" id="pilotBroker" placeholder="wss://broker.hivemq.com:8884/mqtt" style="width: 100%;" />
+        </div>
+        <div class="control-group" style="margin-bottom: 15px;">
+          <label>Topic Base:</label>
+          <input type="text" id="pilotTopic" placeholder="data/haiwell/fazsltda/estados" style="width: 100%;" />
+        </div>
+        
+        <h4 style="margin: 10px 0 5px; color: #666; font-size: 0.9rem;">Mapeo de Claves (JSON Boolean)</h4>
+        <div class="control-group" style="margin-bottom: 5px;">
+          <label style="font-weight: normal; font-size: 0.8rem;">Piloto 1 Key:</label>
+          <input type="text" id="keyLamp1" placeholder="Ej: estado_bomba" style="width: 100%;" />
+        </div>
+        <div class="control-group" style="margin-bottom: 5px;">
+          <label style="font-weight: normal; font-size: 0.8rem;">Piloto 2 Key:</label>
+          <input type="text" id="keyLamp2" placeholder="Ej: alarma_falla" style="width: 100%;" />
+        </div>
+        <div class="control-group" style="margin-bottom: 5px;">
+          <label style="font-weight: normal; font-size: 0.8rem;">Piloto 3 Key:</label>
+          <input type="text" id="keyLamp3" placeholder="Ej: nivel_alto" style="width: 100%;" />
+        </div>
+        <div class="control-group" style="margin-bottom: 20px;">
+          <label style="font-weight: normal; font-size: 0.8rem;">Piloto 4 Key:</label>
+          <input type="text" id="keyLamp4" placeholder="Ej: puerta_abierta" style="width: 100%;" />
+        </div>
+
+        <button onclick="savePilotConfig()" style="width: 100%; background-color: #28a745;">Guardar Configuración</button>
+        <button onclick="clearPilotConfig()" style="width: 100%; background-color: #dc3545; margin-top: 10px; margin-left: 0;">Restaurar a Simulación</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Configuración KPI (Tarjetas Grandes) -->
+  <div id="kpiConfigModal" class="modal">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header-custom">
+        <h2 style="color: #fff; margin: 0;">⚙️ Configurar KPI: <span id="configKpiName"></span></h2>
+        <span class="close-modal" onclick="closeKpiConfigModal()">&times;</span>
+      </div>
+      <div class="modal-body-custom">
+        <div class="control-group" style="margin-bottom: 15px;">
+          <label>Broker MQTT (WSS):</label>
+          <input type="text" id="kpiBroker" placeholder="wss://broker.hivemq.com:8884/mqtt" style="width: 100%;" />
+        </div>
+        <div class="control-group" style="margin-bottom: 15px;">
+          <label>Topic:</label>
+          <input type="text" id="kpiTopic" placeholder="data/kpi/valor" style="width: 100%;" />
+        </div>
+        <div class="control-group" style="margin-bottom: 20px;">
+          <label>Clave JSON (Valor):</label>
+          <input type="text" id="kpiKey" placeholder="Ej: valor" style="width: 100%;" />
+        </div>
+        <button onclick="saveKpiConfig()" style="width: 100%; background-color: #28a745;">Guardar Configuración</button>
+        <button onclick="clearKpiConfig()" style="width: 100%; background-color: #dc3545; margin-top: 10px; margin-left: 0;">Restaurar a Simulación</button>
       </div>
     </div>
   </div>
